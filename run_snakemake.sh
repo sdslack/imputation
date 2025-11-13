@@ -90,7 +90,7 @@ elif [ "$use_cont" = "true" ]; then
         --bind "${id_list_hwe_dir}:${id_list_hwe_dir_cont}" \
         --bind "${config_path}:/proj_repo" \
         --bind "${out_dir}:${out_dir_cont}" \
-        ${repo}/envs/topmed_imputation.sif \
+        ${repo}/envs/env_imputation.sif \
         snakemake --rerun-triggers mtime --snakefile ${repo}/Snakefile \
             --configfile /proj_repo/${config_name} \
             --cores "$n_cores" "$step" $dry_flag $unlock_flag
