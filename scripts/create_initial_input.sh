@@ -45,6 +45,7 @@ check_file_exists() {
 }
 
 # Convert to array
+chr_str="$chr"
 chr=($chr)
 sexcheck=($sexcheck)
 
@@ -54,6 +55,7 @@ check_file_exists "${plink_prefix}.bim"
 ct_var_plink_prefix=$(awk 'END{print NR}' "${plink_prefix}.bim")
 ct_samp_plink_prefix=$(awk 'END{print NR}' "${plink_prefix}.fam")
 echo -e "Summary\tRaw data counts\t${ct_samp_plink_prefix}\t${ct_var_plink_prefix}" >> "$log_file"
+echo -e "Summary\tChr in file: ${chr[@]}\t()\t()"
 
 # Subset to list of IDs, if provided
 plink_prefix_name=$(basename "${plink_prefix}")
@@ -161,16 +163,16 @@ echo -e "Summary\tData counts after pre-filtering\t${ct_samp_prefilt}\t${ct_var_
 
 #### Sex-specific -------------------------------------------------------------
 
-# TO NOTE: this section is selected based on provided chr list, not
-# based on checking what is actually available or not in input file.
-if printf "%s\n" "${chr[@]}" | grep -qE '^(X)$'; then
-   echo "Optional: X chromosome steps will be run."
+# TO NOTE: this section is selected based on presence in input file,
+# not based on provided list of chr to process.
+if awk '{print $1}' "${plink_prefix}.bim" | grep -qw 'X'; then
+   echo "Optional: X chromosome sex-specific steps will be run."
    x_flag=1
 else
    x_flag=0
 fi
-if printf "%s\n" "${chr[@]}" | grep -qE '^(Y)$'; then
-   echo "Optional: Y chromosome steps will be run."
+if awk '{print $1}' "${plink_prefix}.bim" | grep -qw 'Y'; then
+   echo "Optional: Y chromosome sex-specific steps will be run."
    y_flag=1
 else
    y_flag=0
@@ -417,10 +419,19 @@ fi
 
 # SNP Deduplication -----------------------------------------------------------
 
+# Subset only to given chr list
+plink2 --bfile "${out_dir}/tmp_pre_qc_sexcheck" \
+   --chr "${chr[@]}" \
+   --make-bed \
+   --out "${out_dir}/tmp_pre_qc_chr"
+check_file_exists "${out_dir}/tmp_pre_qc_chr.bim"
+ct_var_chr=$(awk 'END{print NR}' "${out_dir}/tmp_pre_qc_chr.bim")
+echo -e "Summary\tData counts after subset to given chr list\t${ct_samp_sexcheck}\t${ct_var_chr}" >> "$log_file"
+
 # Deduplicate and set all variant IDs to chr:pos:ref:alt
 # First, if duplicate IDs have different missingness, remove the SNP with
 # more missingness.
-plink2 --bfile "${out_dir}/tmp_pre_qc_sexcheck" \
+plink2 --bfile "${out_dir}/tmp_pre_qc_chr" \
    --missing --freq \
    --make-pgen \
    --out "${out_dir}/tmp_dedup"
@@ -428,7 +439,7 @@ Rscript ${code_dir}/scripts/dedup_miss.R \
    -v "${out_dir}/tmp_dedup.vmiss" \
    -p "${out_dir}/tmp_dedup.pvar" \
    -l "$log_file"
-plink2 --bfile "${out_dir}/tmp_pre_qc_sexcheck" \
+plink2 --bfile "${out_dir}/tmp_pre_qc_chr" \
    --make-bed \
    --exclude "${out_dir}/tmp_dedup_rm.txt" \
    --out "${out_dir}/tmp_dedup_rm"
@@ -520,20 +531,20 @@ for c in "${chr[@]}"; do
          --keep-allele-order --allow-no-sex \
          --make-bed --out "${out_dir}/tmp_chr6"
 
-      check_file_exists "${out_dir}/tmp_mhc.pvar"
-      check_file_exists "${out_dir}/tmp_mhc_hwe.bim"
-      ct_mhc=$(awk 'END{print NR}' "${out_dir}/tmp_mhc.pvar")
-      ct_mhc_hwe=$(awk 'END{print NR}' "${out_dir}/tmp_mhc_hwe.bim")
-      ct_mhc_hwe_rm=$((ct_mhc -1 - ct_mhc_hwe))  # -1 for .pvar header
+      # check_file_exists "${out_dir}/tmp_mhc.pvar"
+      # check_file_exists "${out_dir}/tmp_mhc_hwe.bim"
+      # ct_mhc=$(awk 'END{print NR}' "${out_dir}/tmp_mhc.pvar")
+      # ct_mhc_hwe=$(awk 'END{print NR}' "${out_dir}/tmp_mhc_hwe.bim")
+      # ct_mhc_hwe_rm=$((ct_mhc -1 - ct_mhc_hwe))  # -1 for .pvar header
 
-      check_file_exists "${out_dir}/tmp_non_mhc.pvar"
-      check_file_exists "${out_dir}/tmp_non_mhc_hwe.bim"
-      ct_non_mhc=$(awk 'END{print NR}' "${out_dir}/tmp_non_mhc.pvar")
-      ct_non_mhc_hwe=$(awk 'END{print NR}' "${out_dir}/tmp_non_mhc_hwe.bim")
-      ct_non_mhc_hwe_rm=$((ct_non_mhc -1 - ct_non_mhc_hwe))  # -1 for .pvar header
+      # check_file_exists "${out_dir}/tmp_non_mhc.pvar"
+      # check_file_exists "${out_dir}/tmp_non_mhc_hwe.bim"
+      # ct_non_mhc=$(awk 'END{print NR}' "${out_dir}/tmp_non_mhc.pvar")
+      # ct_non_mhc_hwe=$(awk 'END{print NR}' "${out_dir}/tmp_non_mhc_hwe.bim")
+      # ct_non_mhc_hwe_rm=$((ct_non_mhc -1 - ct_non_mhc_hwe))  # -1 for .pvar header
 
-      echo -e "HWE\tRemove chr6 MHC SNPs failing HWE (1e-20) in ${hwe_subset}\t()\t(${ct_mhc_hwe_rm})" >> "$log_file"
-      echo -e "HWE\tRemove chr6 non-MHC SNPs failing HWE (1e-6) in ${hwe_subset}\t()\t(${ct_non_mhc_hwe_rm})" >> "$log_file"
+      # echo -e "HWE\tRemove chr6 MHC SNPs failing HWE (1e-20) in ${hwe_subset}\t()\t(${ct_mhc_hwe_rm})" >> "$log_file"
+      # echo -e "HWE\tRemove chr6 non-MHC SNPs failing HWE (1e-6) in ${hwe_subset}\t()\t(${ct_non_mhc_hwe_rm})" >> "$log_file"
 
    else
       echo "Processing chr$c with HWE 1e-6."
@@ -591,10 +602,32 @@ check_file_exists "${out_dir}/pre_qc_hwe.bim"
 ct_var_hwe=$(awk 'END{print NR}' "${out_dir}/pre_qc_hwe.bim")
 ct_samp_hwe=$(awk 'END{print NR}' "${out_dir}/pre_qc_hwe.fam")
 ct_hwe_rm=$((ct_var_dedup - ct_var_hwe))
-echo -e "HWE\tRemove SNPs (all chr) failing HWE (1e-20 MHC, 1e-6 otherwise) in ${hwe_subset}\t()\t(${ct_hwe_rm})" >> "$log_file"
+
+# If chr6 was processed, add to log file  and subtract it from summary of
+# rest of chr
+if check_file_exists "${out_dir}/tmp_mhc.pvar"; then
+   check_file_exists "${out_dir}/tmp_mhc_hwe.bim"
+   ct_mhc=$(awk 'END{print NR}' "${out_dir}/tmp_mhc.pvar")
+   ct_mhc_hwe=$(awk 'END{print NR}' "${out_dir}/tmp_mhc_hwe.bim")
+   ct_mhc_hwe_rm=$((ct_mhc -1 - ct_mhc_hwe))  # -1 for .pvar header
+
+   check_file_exists "${out_dir}/tmp_non_mhc.pvar"
+   check_file_exists "${out_dir}/tmp_non_mhc_hwe.bim"
+   ct_non_mhc=$(awk 'END{print NR}' "${out_dir}/tmp_non_mhc.pvar")
+   ct_non_mhc_hwe=$(awk 'END{print NR}' "${out_dir}/tmp_non_mhc_hwe.bim")
+   ct_non_mhc_hwe_rm=$((ct_non_mhc -1 - ct_non_mhc_hwe))  # -1 for .pvar header
+
+   ct_hwe_rm_non_chr6=$((ct_hwe_rm - ct_mhc_hwe_rm - ct_non_mhc_hwe_rm))
+   echo -e "HWE\tRemove chr6 MHC SNPs failing HWE (1e-20) in ${hwe_subset}\t()\t(${ct_mhc_hwe_rm})" >> "$log_file"
+   echo -e "HWE\tRemove chr6 non-MHC SNPs failing HWE (1e-6) in ${hwe_subset}\t()\t(${ct_non_mhc_hwe_rm})" >> "$log_file"
+   echo -e "HWE\tRemove non-chr6 SNPs failing HWE (1e-6) in ${hwe_subset}\t()\t(${ct_hwe_rm_non_chr6})" >> "$log_file"
+
+else
+   echo -e "HWE\tRemove SNPs failing HWE (1e-6) in ${hwe_subset}\t()\t(${ct_hwe_rm})" >> "$log_file"
+fi
 echo -e "Summary\tData counts after HWE\t${ct_samp_hwe}\t${ct_var_hwe}" >> "$log_file"
 
-# Liftover --------------------------------------------------------------------
+# Imputation prep -------------------------------------------------------------
 
 # Check if liftover needed
 if [ "$orig_build_num" != "$to_build_num" ]; then
@@ -642,8 +675,6 @@ else
    cp "${out_dir}/pre_qc_hwe.bed" "${out_dir}/tmp_liftover.bed"
    cp "${out_dir}/pre_qc_hwe.fam" "${out_dir}/tmp_liftover.fam"
 fi
-
-# Imputation prep -------------------------------------------------------------
 
 # Remove strand ambiguous SNPs, set IDs to chr:pos:ref:alt
 check_file_exists "${out_dir}/tmp_liftover.bim"
