@@ -25,9 +25,12 @@
     SNPs using reference panel... potential future step
 * add note that create initial input should be run twice so that plot with sex checks
     can be examined and thresholds can be adjusted
-* better initial variant number logging when not running all chr?
 * get job-id from log files
 * update create_initial_input log file to count all non-chr6 HWE (vs all chr HWE)
+* add note the pre-filtering, sex-checks done for all chr present in given file, but
+    SNP dedup, HWE and imputation prep only done for requested chr to prepare
+* add note that chrY can be prepared but not imputed
+* add concat_convert_to_plink as main option
 
 
 ## **imputation_snakemake**
